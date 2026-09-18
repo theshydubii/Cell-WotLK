@@ -7,18 +7,96 @@ local I = Cell.iFuncs
 local P = Cell.pixelPerfectFuncs
 
 local ResurrectionTexture = "Interface\\AddOns\\Cell\\Media\\Icons\\Raid-Icon-Rez.blp"
+local GetNumRaidMembers = GetNumRaidMembers
 
 -------------------------------------------------
 -- event
 -------------------------------------------------
-local eventFrame = CreateFrame("Frame")
-eventFrame:SetScript("OnEvent", function()
+local worldZones = {}
+for continent = 1, 4 do
+    for _, zone in ipairs({GetMapZones(continent)}) do
+        worldZones[zone] = true
+    end
+end
+
+local otherPartyGUIDs = {}
+
+local function UpdateRosterZones()
+    wipe(otherPartyGUIDs)
+    local numRaidMembers = GetNumRaidMembers()
+    if numRaidMembers == 0 or not worldZones[GetZoneText()] then return end
+    for i = 1, numRaidMembers do
+        local _, _, _, _, _, _, zone, online = GetRaidRosterInfo(i)
+        if online and zone and zone ~= "" and zone ~= UNKNOWN and not worldZones[zone] then
+            local guid = UnitGUID("raid"..i)
+            if guid then
+                otherPartyGUIDs[guid] = true
+            end
+        end
+    end
+end
+
+local function UnitInOtherParty(button)
+    local guid = button.states.guid or UnitGUID(button.states.unit)
+    return guid and otherPartyGUIDs[guid]
+end
+
+local function UpdateStatusIcons()
     F.IterateAllUnitButtons(function(button)
         local unit = button.states.unit
-        if unit and strfind(unit, "^party") then
+        if unit then
             I.UpdateStatusIcon(button)
         end
     end)
+end
+
+local function RefreshStatusIcons()
+    UpdateRosterZones()
+    UpdateStatusIcons()
+end
+
+local zoneTicker, zoneTickerUpdate
+local ScheduleZoneTickerUpdate
+
+local function UpdateZoneTicker()
+    if F.IsInRaid() then
+        if not zoneTicker then
+            zoneTicker = F.C_Timer.NewTicker(1, function()
+                if F.IsInRaid() then
+                    RefreshStatusIcons()
+                else
+                    ScheduleZoneTickerUpdate()
+                end
+            end)
+        end
+        RefreshStatusIcons()
+    else
+        if zoneTicker then
+            zoneTicker:Cancel()
+            zoneTicker = nil
+        end
+        wipe(otherPartyGUIDs)
+        UpdateStatusIcons()
+    end
+end
+
+ScheduleZoneTickerUpdate = function()
+    if zoneTickerUpdate then
+        zoneTickerUpdate:Cancel()
+    end
+    zoneTickerUpdate = F.C_Timer.NewTimer(0.1, function()
+        zoneTickerUpdate = nil
+        UpdateZoneTicker()
+    end)
+end
+
+local eventFrame = CreateFrame("Frame")
+eventFrame:SetScript("OnEvent", function(self, event)
+    if event == "RAID_ROSTER_UPDATE" then
+        ScheduleZoneTickerUpdate()
+    else
+        UpdateStatusIcons()
+    end
 end)
 
 local function DiedWithSoulstone(b)
@@ -229,7 +307,12 @@ function I.UpdateStatusIcon(button)
     local icon = button.indicators.statusIcon
 
     -- Interface\FrameXML\CompactUnitFrame.lua, CompactUnitFrame_UpdateCenterStatusIcon
-    if UnitIsDeadOrGhost(unit) and F.UnitHasIncomingResurrection(unit) then
+    if UnitInOtherParty(button) then
+        icon:SetVertexColor(1, 1, 1, 1)
+        icon:SetTexture("Interface\\LFGFrame\\LFG-Eye")
+        icon:SetTexCoord(0.14, 0.235, 0.28, 0.47)
+        icon:Show()
+    elseif UnitIsDeadOrGhost(unit) and F.UnitHasIncomingResurrection(unit) then
         icon:SetVertexColor(1, 1, 1, 1)
         icon:SetTexture(ResurrectionTexture)
         icon:SetTexCoord(0, 1, 0, 1)
@@ -260,11 +343,21 @@ function I.EnableStatusIcon(enabled)
         F.RegisterIncomingResurrectionCallback("StatusIcon", IncomingResurrectionChanged)
         eventFrame:RegisterEvent("PARTY_MEMBER_DISABLE")
         eventFrame:RegisterEvent("PARTY_MEMBER_ENABLE")
+        eventFrame:RegisterEvent("RAID_ROSTER_UPDATE")
+        ScheduleZoneTickerUpdate()
         -- resurrection
         cleuFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
     else
         F.UnregisterIncomingResurrectionCallback("StatusIcon")
         eventFrame:UnregisterAllEvents()
+        if zoneTicker then
+            zoneTicker:Cancel()
+            zoneTicker = nil
+        end
+        if zoneTickerUpdate then
+            zoneTickerUpdate:Cancel()
+            zoneTickerUpdate = nil
+        end
         cleuFrame:UnregisterAllEvents()
         F.IterateAllUnitButtons(function(b)
             b.indicators.statusIcon:Hide()
