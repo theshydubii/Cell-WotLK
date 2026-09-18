@@ -22,9 +22,14 @@ local queue
 local isInstantMode = true
 local isProcessing = false
 local modeBtn, processingFrame, progressBar, combatTips
+local rosterRetry
 
 local function Reset(reload)
     -- print("RESET", reload)
+    if rosterRetry then
+        rosterRetry:Cancel()
+        rosterRetry = nil
+    end
     queue = nil
     isInstantMode = true
     isProcessing = false
@@ -101,8 +106,13 @@ end
 UpdateMode = function()
     -- update button
     if isInstantMode then
-        raidRosterFrame:RegisterEvent("RAID_ROSTER_UPDATE")
-        raidRosterFrame:RegisterEvent("PARTY_MEMBERS_CHANGED")
+        if raidRosterFrame:IsShown() then
+            raidRosterFrame:RegisterEvent("RAID_ROSTER_UPDATE")
+            raidRosterFrame:RegisterEvent("PARTY_MEMBERS_CHANGED")
+        else
+            raidRosterFrame:UnregisterEvent("RAID_ROSTER_UPDATE")
+            raidRosterFrame:UnregisterEvent("PARTY_MEMBERS_CHANGED")
+        end
         modeBtn:SetText(L["Instant Mode"])
         modeBtn.tex:SetTexture("Interface\\AddOns\\Cell\\Media\\Icons\\instant")
         LCG.PixelGlow_Stop(modeBtn)
@@ -400,14 +410,15 @@ local function CreateRaidRosterGrid(parent, index)
         movingGrid = nil
     end)
 
-    -- onupdate
-    grid:SetScript("OnUpdate", function()
+    -- hover
+    grid:SetScript("OnEnter", function()
         if not grid.isMoving then
-            if grid:IsMouseOver() then
-                grid:SetBackdropColor(grid.color[1], grid.color[2], grid.color[3], 0.2)
-            else
-                grid:SetBackdropColor(0.1, 0.1, 0.1, 0.5)
-            end
+            grid:SetBackdropColor(grid.color[1], grid.color[2], grid.color[3], 0.2)
+        end
+    end)
+    grid:SetScript("OnLeave", function()
+        if not grid.isMoving then
+            grid:SetBackdropColor(0.1, 0.1, 0.1, 0.5)
         end
     end)
 
@@ -456,11 +467,7 @@ local function CreateRaidRosterGrid(parent, index)
         local name, _, subgroup, _, _, classFileName = GetRaidRosterInfo(raidIndex)
 
         if not name then
-            -- unknown target, retry
-            F.C_Timer.After(0.5, function()
-                grid:Set(raidIndex)
-            end)
-            return
+            return false
         end
 
 
@@ -488,6 +495,7 @@ local function CreateRaidRosterGrid(parent, index)
         -- update
         grid:Update()
         grid:EnableMouse(true)
+        return true
     end
 
     return grid
@@ -522,8 +530,13 @@ local function CreateRaidRosterGroup(parent, groupIndex)
     end
 
     function group:Insert(raidIndex)
-        group.numMembers = group.numMembers + 1
-        group[group.numMembers]:Set(raidIndex)
+        local nextIndex = group.numMembers + 1
+        local grid = group[nextIndex]
+        if not grid or not grid:Set(raidIndex) then
+            return false
+        end
+        group.numMembers = nextIndex
+        return true
     end
 
     return group
@@ -548,7 +561,23 @@ end
 -------------------------------------------------
 -- functions
 -------------------------------------------------
-LoadRoster = function()
+local function ScheduleRosterReload()
+    if rosterRetry then return end
+
+    rosterRetry = F.C_Timer.NewTimer(0.5, function()
+        rosterRetry = nil
+        if raidRosterFrame:IsShown() then
+            LoadRoster(false)
+        end
+    end)
+end
+
+LoadRoster = function(allowRetry)
+    if rosterRetry then
+        rosterRetry:Cancel()
+        rosterRetry = nil
+    end
+
     if movingGrid then
         movingGrid:GetScript("OnDragStop")()
     end
@@ -560,10 +589,17 @@ LoadRoster = function()
     end
 
     -- insert
+    local incomplete
     for i = 1, F.GetNumGroupMembers() do
         local subgroup = select(3, GetRaidRosterInfo(i))
-        groups[subgroup]:Insert(i)
+        if not subgroup or not groups[subgroup] or not groups[subgroup]:Insert(i) then
+            incomplete = true
+        end
         -- premadeGroups[subgroup] = premadeGroups[subgroup] + 1
+    end
+
+    if incomplete and allowRetry ~= false then
+        ScheduleRosterReload()
     end
 end
 
