@@ -606,12 +606,14 @@ local debuffs = {
         [748] = { -- 黑曜石哨兵
         },
         [470] = { -- 远古巨石卫士
+            10093, -- Harsh Winds
         },
         [471] = { -- 加加恩·火锤
             8053, -- Flame Shock
             9482, -- Amplify Flames
         },
         [472] = { -- 格瑞姆洛克
+            11892, -- Shrink
         },
         [473] = { -- 阿扎达斯
         },
@@ -709,6 +711,7 @@ local debuffs = {
             16143, -- Cadaver Worms
             7713, -- Wailing Dead
             12889, -- Curse of Tongues
+            15618, -- Snap Kick
         },
         [443] = { -- 弗雷斯特恩
         },
@@ -749,6 +752,7 @@ local debuffs = {
     [63] = { -- 死亡矿井
         ["general"] = {
             6304, -- Rhahk'Zor Slam
+            3603, -- Distracting Pain
             12097, -- Pierce Armor
             7399, -- Terrify
             6713, -- Disarm
@@ -797,6 +801,7 @@ local debuffs = {
             9080, -- Hamstring
             12540, -- Gouge
             8281, -- Sonic Burst
+            21062, -- Putrid Breath
         },
         [423] = { -- 诺克赛恩
             21687, -- Toxic Volley
@@ -848,6 +853,8 @@ local debuffs = {
             11990, -- Rain of Fire
             12540, -- Gouge
             14032, -- Shadow Word: Pain
+            744, -- Poison
+            3256, -- Plague Cloud
         },
         [483] = { -- 加兹瑞拉
             11131, -- Icicle
@@ -1019,6 +1026,7 @@ local debuffs = {
             11641, -- Hex
             13445, -- Rend
             6524, -- Ground Tremor
+            12097, -- Pierce Armor
         },
         [457] = { -- 哈卡的化身
         },
@@ -1164,6 +1172,8 @@ local debuffs = {
             8364, -- Blizzard
             3604, -- Tendon Rip
             47310, -- Direbrew's Disarm
+            11971, -- Sunder Armor
+            13692, -- Dire Growl
         },
         [369] = { -- 审讯官格斯塔恩
         },
