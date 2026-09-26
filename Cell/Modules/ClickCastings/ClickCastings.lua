@@ -333,6 +333,12 @@ local function SetBindingClicks(b)
                 mouseoverbutton = nil
             end
         ]])
+
+        wrapFrame:WrapScript(b, "OnAttributeChanged", [[
+            if name == "unit" and mouseoverbutton == self and self:IsUnderMouse() then
+                self:RunAttribute("_onenter")
+            end
+        ]])
     end
 
     --! NOTE: if another frame shows in front of b, _onleave will NOT trigger. Use WrapScript to solve this issue.
