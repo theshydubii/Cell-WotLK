@@ -1,5 +1,6 @@
 ## Interface: 30300
-## Title: Cell
+## Title: |cff42e2ffCell|r
+## Notes: A clean, lightweight, and highly customizable raid-frame addon backported to Wrath of the Lich King.
 ## Version: r279-beta
 ## Author: enderneko
 ## X-Flavor: Wrath
