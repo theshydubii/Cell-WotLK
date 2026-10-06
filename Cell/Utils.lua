@@ -1679,10 +1679,18 @@ function F.GetGroupType()
 end
 
 function F.UnitInGroup(unit, ignorePets)
-    if ignorePets then
-        return UnitIsUnit(unit, "player") or UnitInParty(unit) or UnitInRaid(unit)
-    else
-        return UnitIsUnit(unit, "player") or UnitIsUnit(unit, "pet") or UnitPlayerOrPetInParty(unit) or UnitPlayerOrPetInRaid(unit)
+    for groupUnit in F.IterateGroupMembers() do
+        if UnitIsUnit(unit, groupUnit) then
+            return true
+        end
+    end
+
+    if not ignorePets then
+        for groupPet in F.IterateGroupPets() do
+            if UnitIsUnit(unit, groupPet) then
+                return true
+            end
+        end
     end
 end
 
